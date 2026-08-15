@@ -64,6 +64,11 @@ iPhone-App starten — sie schiebt den aktuellen Stand per
   Build-Nummern nur *innerhalb desselben Versions-Strings*. Kollidiert
   ein Cloud-Build mit einer bereits hochgeladenen Nummer: Patch-Version
   anheben oder in ASC → Xcode Cloud → „Next Build Number“ setzen.
+- **Generischer TestFlight-Installationsfehler?** Erst Geräte-Logs ziehen
+  (`sudo log collect --device-name … --last 5m`) statt raten. Bekannter
+  Fall in dieser App-Familie: ein DNS-Filter (NextDNS) blockte
+  Apple-Endpunkte (`xp.apple.com`), die TestFlight-ServiceExtension
+  crashte daran — Fix ist eine Allowlist-Freigabe, kein Build-Problem.
 - Die Flutter-App war zuletzt als 1.2.x (Build ≤ 6) im Store; die native
   App startet als **2.0.0**.
 
