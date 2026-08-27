@@ -159,6 +159,33 @@ Eintrag: `id`, `medikament` (Freitext), `time` (ISO 8601). Fehler:
 `{"error": "..."}` mit passendem HTTP-Status. Die lokale Tabelle
 `entries(id, medikament, time)` spiegelt exakt dieses Modell.
 
+## Sicherung & Gerätewechsel
+
+Auf iOS gibt es kein Gegenstück zu Androids `backup_rules.xml` /
+`data_extraction_rules.xml`. Gesteuert wird über die Dateiablage
+(`Documents` wird gesichert, `Library/Caches` und `tmp` nicht),
+`isExcludedFromBackup` und die Keychain-Attribute.
+
+| | iCloud-Backup | Direkttransfer (Schnellstart) |
+|---|---|---|
+| Einträge (SQLite) | ✅ | ✅ |
+| API-Key (Keychain) | ❌ | ✅ |
+| Client-Zertifikat | ❌ | ❌ |
+
+Der API-Key liegt in der Keychain, mit `kSecAttrAccessibleAfterFirstUnlock`
+und **ohne** `kSecAttrSynchronizable`. Damit ist er beim Direkttransfer und
+im verschlüsselten Finder-Backup dabei, aus einem iCloud-Backup dagegen nicht
+wiederherstellbar — die iOS-Entsprechung der Android-Entscheidung
+„`<device-transfer>` ja, `<cloud-backup>` nein“. Nach einer Wiederherstellung
+aus iCloud ist er einmal neu einzutragen. Die Uhr hält keinen eigenen
+Schlüssel: sie bekommt ihren Stand per Push vom iPhone und spricht nie
+selbst mit dem Server.
+
+Client-Zertifikate (`client.crt` / `client.key`) liegen im App-Ordner der
+Dateien-App und sind nach einem Gerätewechsel gegebenenfalls neu abzulegen.
+
+Unabhängig davon gibt es das manuelle Backup unter *Einstellungen → Backup*.
+
 ## Design-System „Minze & Honig“ (v1.0)
 
 Quelle der Wahrheit im Code: `medikamente/Theme.swift` (iPhone) und die
