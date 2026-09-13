@@ -107,6 +107,9 @@ medikamente/                     iPhone-App
   MedService.swift               Protokoll der Datenquellen + Factory
   DemoService.swift              lokale SQLite (sqflite-kompatibel, C-API, serielle Queue)
   ApiService.swift               REST-Client (URLSession; api.php-Actions, mTLS via Delegate)
+  Netzfehler.swift               Einordnung: nie gesendet vs. mehrdeutig
+  OfflineService.swift           Offline-Hülle, Warteschlange + Lesestand,
+                                 Verbindungswache (NWPathMonitor)
   CloudflareServiceToken.swift   Service-Token-Header + Erkennung der
                                  Access-Abweisung (Redirect auf die Login-Seite)
   ClientIdentity.swift           PEM (crt/key) -> SecIdentity (Keychain)
@@ -141,6 +144,48 @@ erkennt das am Host der finalen Antwort (Subdomain von
 `cloudflareaccess.com`) bzw. an einem 403 mit `cf-ray`-Header und meldet es
 als Token-Problem. Die Uhr ist davon nicht betroffen: sie spricht nie selbst
 mit dem Server.
+
+## Offline-Betrieb
+
+Bricht die Verbindung weg, bleibt die App benutzbar. `OfflineService` legt
+sich dafür über die Server-Quelle (nur in den Server-Modi, nicht im Demo).
+
+**Lesen:** Nach jedem erfolgreichen Laden liegen Einträge und Statistik als
+JSON in `Application Support/Offline/` (getrennt, weil die Oberfläche beide
+nebenläufig lädt). Scheitert das Laden an einem Netzwerkfehler, zeigt die App
+diesen Stand statt einer leeren Liste.
+
+**Schreiben:** Was nicht rausging, landet in einer Warteschlange und geht
+raus, sobald die Verbindung steht. In die Warteschlange darf eine Aktion
+**nur**, wenn sie den Server nachweislich nie erreicht hat (kein Netz, DNS,
+Verbindungsaufbau, TLS). Eine Zeitüberschreitung oder ein Abbruch mitten in
+der Übertragung ist mehrdeutig — der Server könnte den Eintrag längst haben,
+ein zweiter Versuch legte dann einen zweiten an.
+
+**Warteschlange.** Neue Einträge bekommen eine negative lokale ID und
+erscheinen sofort in der Liste (mit Uhr-Symbol). Eine Löschung, die einen noch
+wartenden Eintrag trifft, entfernt dessen `anlegen`-Aktion ersatzlos — dadurch
+beziehen sich alle verbleibenden Löschungen auf echte Server-IDs. Solange
+etwas ansteht, geht auch ein neuer Schreibzugriff hinten dran statt am Stau
+vorbei.
+
+**`undoLast` wird bewusst nicht vorgemerkt.** Wartet noch ein Eintrag, nimmt
+die App ihn direkt aus der Warteschlange. Ist die Warteschlange leer, muss der
+Server ran; offline meldet das einen Fehler. Grund: Die API kennt für
+`undoLast` keine ID, beim Nachholen träfe es womöglich einen Eintrag, den
+jemand anders inzwischen angelegt hat.
+
+**Statistik.** Wartende Einträge werden vollständig eingerechnet, inklusive
+der Aufschlüsselung je Medikament — anders als beim Wickel-Tracker sind das
+hier reine Zählungen und keine Prozentanteile.
+
+**Abgearbeitet** wird vor jedem Laden, beim Zurückkehren aus dem Hintergrund
+und sobald `NWPathMonitor` wieder einen Pfad meldet. Beim ersten
+Verbindungsfehler bricht der Durchlauf ab, der Rest bleibt in der Reihenfolge
+stehen. Vom Server inhaltlich zurückgewiesene Aktionen fliegen raus und werden
+einmal gemeldet.
+
+Die Ablage hängt am Zugang (Modus + Basis-URL).
 
 ## Watch-Protokoll (WatchConnectivity)
 
