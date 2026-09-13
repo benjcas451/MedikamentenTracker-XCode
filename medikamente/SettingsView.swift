@@ -7,6 +7,9 @@ struct SettingsView: View {
   @State private var mode = AppSettings.mode
   @State private var apiUrl = AppSettings.apiBaseUrl
   @State private var apiKeyUrl = AppSettings.apiKeyBaseUrl
+  @State private var cloudflareUrl = AppSettings.cloudflareBaseUrl
+  @State private var cfClientId = AppSettings.cfAccessClientId
+  @State private var cfClientSecret = AppSettings.cfAccessClientSecret
   @State private var apiKey = AppSettings.apiKey
   @State private var apiKeySichtbar = false
   @State private var certsOk = CertSource().sindVorhanden
@@ -23,6 +26,8 @@ struct SettingsView: View {
 
   @FocusState private var urlFokus: Bool
   @FocusState private var keyFokus: Bool
+  @FocusState private var cfIdFokus: Bool
+  @FocusState private var cfSecretFokus: Bool
 
   var body: some View {
     NavigationStack {
@@ -33,6 +38,7 @@ struct SettingsView: View {
             datenquelle
             if mode == .apiKey { apiKeySektion }
             if mode == .api { mtlsSektion }
+            if mode == .cloudflare { cloudflareSektion }
             if mode == .demo { backupSektion }
             erklaerung
           }
@@ -99,6 +105,10 @@ struct SettingsView: View {
         untertitel: "API-Key empfohlen (ohne Zertifikat)"
       ) { setzeModus(.apiKey) }
       ModusZeile(
+        gewaehlt: mode == .cloudflare, titel: "Server (Cloudflare Access)",
+        untertitel: "Service Token, API-Key optional"
+      ) { setzeModus(.cloudflare) }
+      ModusZeile(
         gewaehlt: mode == .demo, titel: "Lokal (SQLite)",
         untertitel: "Einträge bleiben nur auf diesem Gerät"
       ) { setzeModus(.demo) }
@@ -110,8 +120,8 @@ struct SettingsView: View {
     AppSettings.mode = neu
   }
 
-  /// Der API-Key wird in beiden Server-Modi mitgesendet, falls hinterlegt –
-  /// manche Instanzen verlangen mTLS UND Key.
+  /// Der API-Key wird in allen Server-Modi mitgesendet, falls hinterlegt –
+  /// manche Instanzen verlangen mTLS bzw. Cloudflare Access UND Key.
   private func apiKeyFeld(hilfe: String?) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack {
@@ -152,6 +162,27 @@ struct SettingsView: View {
       Sektion("Server (API-Key)")
       UrlFeld(wert: $apiKeyUrl, fokus: $urlFokus) { AppSettings.apiKeyBaseUrl = $0 }
       apiKeyFeld(hilfe: "Empfohlen. Ohne API-Key nur für interne Testzwecke.")
+    }
+  }
+
+  /// Cloudflare Access prüft das Service Token am Rand und reicht die
+  /// Anfrage erst danach an den Server weiter. Der API-Key ist wie im
+  /// mTLS-Modus optional – für Server, die dahinter weiter ihren eigenen
+  /// Key verlangen.
+  private var cloudflareSektion: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Sektion("Server (Cloudflare Access)")
+      UrlFeld(wert: $cloudflareUrl, fokus: $urlFokus) { AppSettings.cloudflareBaseUrl = $0 }
+      GeheimFeld(
+        wert: $cfClientId, fokus: $cfIdFokus, titel: "Client-ID",
+        hinweis: "Client-ID des Service Tokens, endet üblicherweise auf „.access“."
+      ) { AppSettings.cfAccessClientId = $0 }
+      GeheimFeld(
+        wert: $cfClientSecret, fokus: $cfSecretFokus, titel: "Client-Secret",
+        hinweis: "Beide Teile nötig. Service Tokens laufen ab, standardmäßig "
+          + "nach einem Jahr."
+      ) { AppSettings.cfAccessClientSecret = $0 }
+      apiKeyFeld(hilfe: nil)
     }
   }
 
@@ -337,6 +368,51 @@ private struct ModusZeile: View {
   }
 }
 
+/// Verdecktes Eingabefeld mit Auge zum Aufdecken – für die beiden Hälften
+/// des Cloudflare Service Tokens.
+private struct GeheimFeld: View {
+  @Binding var wert: String
+  var fokus: FocusState<Bool>.Binding
+  let titel: String
+  let hinweis: String
+  let onAenderung: (String) -> Void
+
+  @State private var sichtbar = false
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Group {
+          if sichtbar {
+            TextField(titel, text: $wert)
+          } else {
+            SecureField(titel, text: $wert)
+          }
+        }
+        .font(.nunito(16))
+        .focused(fokus)
+        .autocorrectionDisabled()
+        .textInputAutocapitalization(.never)
+        .onChange(of: wert) { neu in onAenderung(neu) }
+        Button {
+          sichtbar.toggle()
+        } label: {
+          Image(systemName: sichtbar ? "eye.slash" : "eye")
+            .foregroundStyle(Mh.textSekundaer)
+        }
+      }
+      .padding(.horizontal, 14)
+      .frame(minHeight: 44)
+      .background(Mh.feldFlaeche)
+      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .overlay(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .strokeBorder(fokus.wrappedValue ? Mh.minze500 : Mh.rand, lineWidth: 1.5))
+      Text(hinweis).font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
+    }
+  }
+}
+
 private struct UrlFeld: View {
   @Binding var wert: String
   var fokus: FocusState<Bool>.Binding
@@ -457,6 +533,8 @@ extension SettingsView {
     verlangen ihn, andere sichern nur über mTLS ab – dann ist der Key optional.
     • Im Modus "Server (mTLS-API)" zusätzlich ein Client-Zertifikat \
     (client.crt + client.key) auf Transport-Ebene.
+    • Im Modus "Server (Cloudflare Access)" zusätzlich die Header \
+    "CF-Access-Client-Id: <ID>" und "CF-Access-Client-Secret: <Secret>".
 
     Fehler kommen als {"error": "..."} mit passendem HTTP-Statuscode.
     """

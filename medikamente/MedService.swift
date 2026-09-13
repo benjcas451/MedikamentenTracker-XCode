@@ -5,6 +5,9 @@ struct ServiceError: LocalizedError {
   let message: String
   /// HTTP-Status, falls der Fehler von der API kam (404 = „nichts da“).
   var statusCode: Int?
+  /// Gesetzt, wenn der Fehler ein Verbindungsproblem war – entscheidet
+  /// darüber, ob die Aktion in die Offline-Warteschlange darf.
+  var netzfehler: Netzfehler?
   var errorDescription: String? { message }
 }
 
@@ -34,7 +37,27 @@ protocol MedService: Sendable {
 }
 
 /// Erstellt die aktuell konfigurierte Datenquelle.
-func createConfiguredMedService() -> MedService {
+///
+/// `offlineFaehig` legt die Warteschlange darüber, die bei einem
+/// Verbindungsabbruch einspringt.
+func createConfiguredMedService(offlineFaehig: Bool = false) -> MedService {
+  let dienst = createServerOderDemoService()
+  guard offlineFaehig, let zugang = aktuellerZugang() else { return dienst }
+  return OfflineService(innen: dienst, zugang: zugang)
+}
+
+/// Kennung des aktuellen Zugangs (Modus + Basis-URL); nil im Demo-Modus, der
+/// ohnehin lokal arbeitet und keine Warteschlange braucht.
+private func aktuellerZugang() -> String? {
+  switch AppSettings.mode {
+  case .api: "api|\(AppSettings.apiBaseUrl)"
+  case .apiKey: "apiKey|\(AppSettings.apiKeyBaseUrl)"
+  case .cloudflare: "cloudflare|\(AppSettings.cloudflareBaseUrl)"
+  case .demo: nil
+  }
+}
+
+private func createServerOderDemoService() -> MedService {
   switch AppSettings.mode {
   case .api:
     // Der API-Key ist im mTLS-Modus optional und wird nur mitgesendet,
@@ -42,6 +65,12 @@ func createConfiguredMedService() -> MedService {
     ApiService(baseURL: AppSettings.apiBaseUrl, certSource: CertSource(), apiKey: AppSettings.apiKey)
   case .apiKey:
     ApiService(baseURL: AppSettings.apiKeyBaseUrl, apiKey: AppSettings.apiKey)
+  case .cloudflare:
+    // Cloudflare Access sichert den Zugang am Rand; der API-Key geht wie in
+    // den anderen Server-Modi mit, sofern hinterlegt.
+    ApiService(
+      baseURL: AppSettings.cloudflareBaseUrl, apiKey: AppSettings.apiKey,
+      cfToken: .ausEinstellungen)
   case .demo:
     DemoService.shared
   }

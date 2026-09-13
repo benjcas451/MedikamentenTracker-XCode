@@ -107,6 +107,11 @@ medikamente/                     iPhone-App
   MedService.swift               Protokoll der Datenquellen + Factory
   DemoService.swift              lokale SQLite (sqflite-kompatibel, C-API, serielle Queue)
   ApiService.swift               REST-Client (URLSession; api.php-Actions, mTLS via Delegate)
+  Netzfehler.swift               Einordnung: nie gesendet vs. mehrdeutig
+  OfflineService.swift           Offline-Hülle, Warteschlange + Lesestand,
+                                 Verbindungswache (NWPathMonitor)
+  CloudflareServiceToken.swift   Service-Token-Header + Erkennung der
+                                 Access-Abweisung (Redirect auf die Login-Seite)
   ClientIdentity.swift           PEM (crt/key) -> SecIdentity (Keychain)
   CertSource.swift               client.crt/client.key: App-Ordner oder frei
                                  gewählter Ordner (security-scoped Bookmark)
@@ -123,8 +128,64 @@ MedikamenteWatch/                watchOS-App (read-only Anzeige)
 ```
 
 **Datenquellen (vom Nutzer wählbar):** Server per mTLS-Client-Zertifikat
-(API-Key optional zusätzlich), Server per API-Key (`X-API-Key`-Header)
-oder lokale SQLite ohne Sync.
+(API-Key optional zusätzlich), Server per API-Key (`X-API-Key`-Header),
+Server hinter Cloudflare Access per Service Token (API-Key ebenfalls
+optional zusätzlich) oder lokale SQLite ohne Sync.
+
+Der Cloudflare-Modus (seit 2.1.0) sendet `CF-Access-Client-Id` und
+`CF-Access-Client-Secret`. Beide Hälften liegen in eigenen Keychain-Accounts
+(`cf-access-client-id`, `cf-access-client-secret`) und gehen nur gemeinsam
+raus — ein halbes Token weist Cloudflare genauso ab wie gar keines.
+
+**Access-Abweisung:** Ohne gültiges Token antwortet Cloudflare nicht mit
+einem Fehler, sondern leitet auf die Login-Seite des Teams um. `URLSession`
+folgt dem, sodass eine HTML-Seite mit Status 200 ankommt. `ApiService`
+erkennt das am Host der finalen Antwort (Subdomain von
+`cloudflareaccess.com`) bzw. an einem 403 mit `cf-ray`-Header und meldet es
+als Token-Problem. Die Uhr ist davon nicht betroffen: sie spricht nie selbst
+mit dem Server.
+
+## Offline-Betrieb
+
+Bricht die Verbindung weg, bleibt die App benutzbar. `OfflineService` legt
+sich dafür über die Server-Quelle (nur in den Server-Modi, nicht im Demo).
+
+**Lesen:** Nach jedem erfolgreichen Laden liegen Einträge und Statistik als
+JSON in `Application Support/Offline/` (getrennt, weil die Oberfläche beide
+nebenläufig lädt). Scheitert das Laden an einem Netzwerkfehler, zeigt die App
+diesen Stand statt einer leeren Liste.
+
+**Schreiben:** Was nicht rausging, landet in einer Warteschlange und geht
+raus, sobald die Verbindung steht. In die Warteschlange darf eine Aktion
+**nur**, wenn sie den Server nachweislich nie erreicht hat (kein Netz, DNS,
+Verbindungsaufbau, TLS). Eine Zeitüberschreitung oder ein Abbruch mitten in
+der Übertragung ist mehrdeutig — der Server könnte den Eintrag längst haben,
+ein zweiter Versuch legte dann einen zweiten an.
+
+**Warteschlange.** Neue Einträge bekommen eine negative lokale ID und
+erscheinen sofort in der Liste (mit Uhr-Symbol). Eine Löschung, die einen noch
+wartenden Eintrag trifft, entfernt dessen `anlegen`-Aktion ersatzlos — dadurch
+beziehen sich alle verbleibenden Löschungen auf echte Server-IDs. Solange
+etwas ansteht, geht auch ein neuer Schreibzugriff hinten dran statt am Stau
+vorbei.
+
+**`undoLast` wird bewusst nicht vorgemerkt.** Wartet noch ein Eintrag, nimmt
+die App ihn direkt aus der Warteschlange. Ist die Warteschlange leer, muss der
+Server ran; offline meldet das einen Fehler. Grund: Die API kennt für
+`undoLast` keine ID, beim Nachholen träfe es womöglich einen Eintrag, den
+jemand anders inzwischen angelegt hat.
+
+**Statistik.** Wartende Einträge werden vollständig eingerechnet, inklusive
+der Aufschlüsselung je Medikament — anders als beim Wickel-Tracker sind das
+hier reine Zählungen und keine Prozentanteile.
+
+**Abgearbeitet** wird vor jedem Laden, beim Zurückkehren aus dem Hintergrund
+und sobald `NWPathMonitor` wieder einen Pfad meldet. Beim ersten
+Verbindungsfehler bricht der Durchlauf ab, der Rest bleibt in der Reihenfolge
+stehen. Vom Server inhaltlich zurückgewiesene Aktionen fliegen raus und werden
+einmal gemeldet.
+
+Die Ablage hängt am Zugang (Modus + Basis-URL).
 
 ## Watch-Protokoll (WatchConnectivity)
 
@@ -171,11 +232,12 @@ Auf iOS gibt es kein Gegenstück zu Androids `backup_rules.xml` /
 | | iCloud-Backup | Direkttransfer (Schnellstart) |
 |---|---|---|
 | Einträge (SQLite) | ✅ | ✅ |
-| API-Key (Keychain) | ❌ | ✅ |
+| API-Key & Service Token (Keychain) | ❌ | ✅ |
 | Client-Zertifikat | ❌ | ❌ |
 
-Der API-Key liegt in der Keychain, mit `kSecAttrAccessibleAfterFirstUnlock`
-und **ohne** `kSecAttrSynchronizable`. Damit ist er beim Direkttransfer und
+Der API-Key und beide Hälften des Cloudflare Service Tokens liegen in der
+Keychain, mit `kSecAttrAccessibleAfterFirstUnlock`
+und **ohne** `kSecAttrSynchronizable`. Damit sind sie beim Direkttransfer und
 im verschlüsselten Finder-Backup dabei, aus einem iCloud-Backup dagegen nicht
 wiederherstellbar — die iOS-Entsprechung der Android-Entscheidung
 „`<device-transfer>` ja, `<cloud-backup>` nein“. Nach einer Wiederherstellung

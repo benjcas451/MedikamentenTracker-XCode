@@ -1,7 +1,7 @@
 import Foundation
 
 /// Ein Medikamenten-Eintrag (Freitext-Name + Zeitpunkt).
-struct MedEntry: Identifiable, Equatable {
+struct MedEntry: Identifiable, Equatable, Codable {
   /// Nil nur bei API-Antworten ohne ID (z. B. Fallback nach `add`).
   let id: Int64?
   let medikament: String
@@ -10,7 +10,7 @@ struct MedEntry: Identifiable, Equatable {
 }
 
 /// Zählung eines Medikaments innerhalb eines Zeitraums.
-struct MedCount: Identifiable, Equatable {
+struct MedCount: Identifiable, Equatable, Codable {
   let medikament: String
   let anzahl: Int
   var id: String { medikament }
@@ -18,7 +18,7 @@ struct MedCount: Identifiable, Equatable {
 
 /// Statistik eines Zeitraums: Gesamtzahl + Aufschlüsselung je Medikament
 /// (so liefert es `GET api.php?action=stats`).
-struct PeriodStats: Equatable {
+struct PeriodStats: Equatable, Codable {
   var total = 0
   var medikamente: [MedCount] = []
 
@@ -27,7 +27,7 @@ struct PeriodStats: Equatable {
 
 /// Vollständige Statistik-Antwort (`action=stats`): Zeiträume heute / Woche /
 /// 3 Wochen / Monat plus letzter Eintrag.
-struct MedStats: Equatable {
+struct MedStats: Equatable, Codable {
   var today = PeriodStats.leer
   var week = PeriodStats.leer
   var threeWeeks = PeriodStats.leer
