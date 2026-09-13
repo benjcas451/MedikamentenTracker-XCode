@@ -42,6 +42,12 @@ func createConfiguredMedService() -> MedService {
     ApiService(baseURL: AppSettings.apiBaseUrl, certSource: CertSource(), apiKey: AppSettings.apiKey)
   case .apiKey:
     ApiService(baseURL: AppSettings.apiKeyBaseUrl, apiKey: AppSettings.apiKey)
+  case .cloudflare:
+    // Cloudflare Access sichert den Zugang am Rand; der API-Key geht wie in
+    // den anderen Server-Modi mit, sofern hinterlegt.
+    ApiService(
+      baseURL: AppSettings.cloudflareBaseUrl, apiKey: AppSettings.apiKey,
+      cfToken: .ausEinstellungen)
   case .demo:
     DemoService.shared
   }
