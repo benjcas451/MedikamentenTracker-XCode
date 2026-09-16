@@ -211,7 +211,7 @@ struct SettingsView: View {
             .font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
           if !eigenerCertOrdner {
             Text(
-              "Per Dateien-App in den Ordner der App „Medikamente“ kopieren – oder "
+              "Per Dateien-App in den Ordner der App „Medikamenten-Tracker“ kopieren – oder "
                 + "unten einen eigenen Ordner wählen.")
               .font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
           }
