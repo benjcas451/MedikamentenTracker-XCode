@@ -11,18 +11,23 @@ import SwiftUI
 struct MhSymbol: View {
   let name: String
   var groesse: CGFloat = Mh.symbol
+  /// Wächst mit Dynamic Type mit (höchstens auf das Anderthalbfache), damit
+  /// Symbole neben großer Schrift nicht verloren wirken.
+  @ScaledMetric(relativeTo: .body) private var skala: CGFloat = 1
 
   init(_ name: String, groesse: CGFloat = Mh.symbol) {
     self.name = name
     self.groesse = groesse
   }
 
+  private var kante: CGFloat { groesse * min(max(skala, 1), 1.5) }
+
   var body: some View {
     Image(name)
       .renderingMode(.template)
       .resizable()
       .scaledToFit()
-      .frame(width: groesse, height: groesse)
+      .frame(width: kante, height: kante)
       .accessibilityHidden(true)
   }
 }
