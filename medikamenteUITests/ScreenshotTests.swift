@@ -30,7 +30,15 @@ final class ScreenshotTests: XCTestCase {
       .firstMatch.waitForExistence(timeout: 15)
     foto(app, "01-start")
 
-    app.swipeUp()
+    // Ein Wischer geht direkt nach dem Start gelegentlich verloren; so lange
+    // wischen (höchstens dreimal), bis der Titel aus dem Bild ist.
+    let titel = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Medikamente"))
+      .firstMatch
+    for _ in 0..<3 {
+      app.swipeUp()
+      sleep(1)
+      if !(titel.exists && titel.isHittable) { break }
+    }
     foto(app, "02-liste")
     app.swipeDown()
     app.swipeDown()
