@@ -11,7 +11,6 @@ struct SettingsView: View {
   @State private var cfClientId = AppSettings.cfAccessClientId
   @State private var cfClientSecret = AppSettings.cfAccessClientSecret
   @State private var apiKey = AppSettings.apiKey
-  @State private var apiKeySichtbar = false
   @State private var certsOk = CertSource().sindVorhanden
   @State private var certOrt = CertSource().locationLabel
   @State private var eigenerCertOrdner = CertSource().eigenerOrdner
@@ -30,31 +29,24 @@ struct SettingsView: View {
   @FocusState private var cfSecretFokus: Bool
 
   var body: some View {
-    NavigationStack {
-      ZStack {
-        Mh.grund.ignoresSafeArea()
-        ScrollView {
-          VStack(alignment: .leading, spacing: 20) {
-            datenquelle
-            if mode == .apiKey { apiKeySektion }
-            if mode == .api { mtlsSektion }
-            if mode == .cloudflare { cloudflareSektion }
-            if mode == .demo { backupSektion }
-            erklaerung
-          }
-          .padding(16)
-        }
-      }
-      .navigationTitle("Einstellungen")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 0) {
+        MhKopf("Einstellungen", hauptaktion: {
           Button("Fertig") { dismiss() }
-            .font(.nunitoBold(16))
-            .foregroundStyle(Mh.gruenText)
-        }
+            .buttonStyle(MhHauptButtonStil(klein: true))
+        })
+        datenquelle
+        if mode == .apiKey { apiKeySektion }
+        if mode == .api { mtlsSektion }
+        if mode == .cloudflare { cloudflareSektion }
+        if mode == .demo { backupSektion }
+        erklaerung
       }
+      .padding(.horizontal, Mh.rand)
+      .padding(.top, Mh.abstand5)
+      .padding(.bottom, Mh.abstand8)
     }
+    .background(Mh.bg.ignoresSafeArea())
     .alert(
       "Hinweis", isPresented: .init(get: { meldung != nil }, set: { if !$0 { meldung = nil } })
     ) {
@@ -94,20 +86,23 @@ struct SettingsView: View {
   // MARK: - Sektionen
 
   private var datenquelle: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Sektion("Datenquelle")
+    VStack(alignment: .leading, spacing: 0) {
+      MhGruppenLabel("Datenquelle")
       ModusZeile(
         gewaehlt: mode == .api, titel: "Server (mTLS-API)",
         untertitel: "Client-Zertifikat, API-Key optional"
       ) { setzeModus(.api) }
+      MhTrennlinie()
       ModusZeile(
         gewaehlt: mode == .apiKey, titel: "Server (API-Key)",
         untertitel: "API-Key empfohlen (ohne Zertifikat)"
       ) { setzeModus(.apiKey) }
+      MhTrennlinie()
       ModusZeile(
         gewaehlt: mode == .cloudflare, titel: "Server (Cloudflare Access)",
         untertitel: "Service Token, API-Key optional"
       ) { setzeModus(.cloudflare) }
+      MhTrennlinie()
       ModusZeile(
         gewaehlt: mode == .demo, titel: "Lokal (SQLite)",
         untertitel: "Einträge bleiben nur auf diesem Gerät"
@@ -123,43 +118,15 @@ struct SettingsView: View {
   /// Der API-Key wird in allen Server-Modi mitgesendet, falls hinterlegt –
   /// manche Instanzen verlangen mTLS bzw. Cloudflare Access UND Key.
   private func apiKeyFeld(hilfe: String?) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        Group {
-          if apiKeySichtbar {
-            TextField("API-Key (optional)", text: $apiKey)
-          } else {
-            SecureField("API-Key (optional)", text: $apiKey)
-          }
-        }
-        .font(.nunito(16))
-        .focused($keyFokus)
-        .autocorrectionDisabled()
-        .textInputAutocapitalization(.never)
+    MhFeld("API-Key", zusatz: "optional", hinweis: hilfe) {
+      GeheimEingabe(wert: $apiKey, platzhalter: "API-Key", fokus: $keyFokus)
         .onChange(of: apiKey) { neu in AppSettings.apiKey = neu }
-        Button {
-          apiKeySichtbar.toggle()
-        } label: {
-          Image(systemName: apiKeySichtbar ? "eye.slash" : "eye")
-            .foregroundStyle(Mh.textSekundaer)
-        }
-      }
-      .padding(.horizontal, 14)
-      .frame(minHeight: 44)
-      .background(Mh.feldFlaeche)
-      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-      .overlay(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .strokeBorder(keyFokus ? Mh.minze500 : Mh.rand, lineWidth: 1.5))
-      if let hilfe {
-        Text(hilfe).font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
-      }
     }
   }
 
   private var apiKeySektion: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Sektion("Server (API-Key)")
+    VStack(alignment: .leading, spacing: Mh.abstand4) {
+      MhGruppenLabel("Server (API-Key)").padding(.bottom, -Mh.abstand4)
       UrlFeld(wert: $apiKeyUrl, fokus: $urlFokus) { AppSettings.apiKeyBaseUrl = $0 }
       apiKeyFeld(hilfe: "Empfohlen. Ohne API-Key nur für interne Testzwecke.")
     }
@@ -170,8 +137,8 @@ struct SettingsView: View {
   /// mTLS-Modus optional – für Server, die dahinter weiter ihren eigenen
   /// Key verlangen.
   private var cloudflareSektion: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Sektion("Server (Cloudflare Access)")
+    VStack(alignment: .leading, spacing: Mh.abstand4) {
+      MhGruppenLabel("Server (Cloudflare Access)").padding(.bottom, -Mh.abstand4)
       UrlFeld(wert: $cloudflareUrl, fokus: $urlFokus) { AppSettings.cloudflareBaseUrl = $0 }
       GeheimFeld(
         wert: $cfClientId, fokus: $cfIdFokus, titel: "Client-ID",
@@ -187,8 +154,8 @@ struct SettingsView: View {
   }
 
   private var mtlsSektion: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Sektion("Server (mTLS-API)")
+    VStack(alignment: .leading, spacing: Mh.abstand4) {
+      MhGruppenLabel("Server (mTLS-API)").padding(.bottom, -Mh.abstand4)
       UrlFeld(wert: $apiUrl, fokus: $urlFokus) { AppSettings.apiBaseUrl = $0 }
       zertifikatsBlock
       apiKeyFeld(hilfe: nil)
@@ -200,34 +167,34 @@ struct SettingsView: View {
   /// Ordner auswählen, auf den die App per security-scoped Bookmark
   /// zugreift – dieselbe Bedienung wie in „Hello Baby“.
   private var zertifikatsBlock: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(spacing: 12) {
-        Image(systemName: certsOk ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .foregroundStyle(certsOk ? Mh.gruenText : Mh.fehlerText)
-        VStack(alignment: .leading, spacing: 2) {
-          Text(certsOk ? "Zertifikate gefunden" : "Keine Zertifikate gefunden")
-            .font(.nunito(16)).foregroundStyle(Mh.text)
-          Text("\(CertSource.certFileName) & \(CertSource.keyFileName) – \(certOrt)")
-            .font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
-          if !eigenerCertOrdner {
-            Text(
-              "Per Dateien-App in den Ordner der App „Medikamenten-Tracker“ kopieren – oder "
-                + "unten einen eigenen Ordner wählen.")
-              .font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
-          }
-        }
+    VStack(alignment: .leading, spacing: Mh.abstand2) {
+      MhHinweis(
+        zertifikatsText,
+        titel: certsOk ? "Zertifikate gefunden" : "Keine Zertifikate gefunden",
+        art: certsOk ? .erfolg : .fehler)
+      Button {
+        zeigeOrdnerwahl = true
+      } label: {
+        MhButtonInhalt("Zertifikats-Ordner wählen", symbol: "MhFolder")
       }
-      zertifikatsButton("Zertifikats-Ordner wählen", "folder") { zeigeOrdnerwahl = true }
+      .buttonStyle(MhZweitButtonStil(breit: true))
+      .padding(.top, Mh.abstand1)
       if eigenerCertOrdner {
-        zertifikatsButton("Standard: App-Ordner (Dateien-App)", "folder.badge.gearshape") {
+        Button {
           certSource.nutzeStandardOrdner()
           pruefeZertifikate()
+        } label: {
+          MhButtonInhalt("Standard: App-Ordner (Dateien-App)", symbol: "MhFolder")
         }
+        .buttonStyle(MhZweitButtonStil(breit: true))
       }
-      zertifikatsButton("Erneut prüfen", "arrow.clockwise") {
+      Button {
         pruefeZertifikate()
         meldung = certsOk ? "Zertifikate gefunden." : "Keine Zertifikate gefunden."
+      } label: {
+        MhButtonInhalt("Erneut prüfen", symbol: "MhRefresh", symbolGroesse: Mh.symbolKlein)
       }
+      .buttonStyle(.mhText)
     }
     // Bewusst hier und nicht am Wurzel-View: dort hängt bereits der Importer
     // für Backups, und zwei fileImporter am selben View vertragen sich nicht.
@@ -243,17 +210,11 @@ struct SettingsView: View {
     }
   }
 
-  private func zertifikatsButton(
-    _ titel: String, _ symbol: String, _ aktion: @escaping () -> Void
-  ) -> some View {
-    Button(action: aktion) {
-      Label(titel, systemImage: symbol)
-        .font(.nunitoBold(15))
-        .foregroundStyle(Mh.gruenText)
-        .padding(.horizontal, 14)
-        .frame(minHeight: 40)
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Mh.rand, lineWidth: 1.5))
-    }
+  private var zertifikatsText: String {
+    let ort = "\(CertSource.certFileName) & \(CertSource.keyFileName) – \(certOrt)"
+    guard !eigenerCertOrdner else { return ort }
+    return ort + "\nPer Dateien-App in den Ordner der App „Medikamenten-Tracker“ kopieren oder "
+      + "unten einen eigenen Ordner wählen."
   }
 
   private func pruefeZertifikate() {
@@ -266,42 +227,44 @@ struct SettingsView: View {
   }
 
   private var backupSektion: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Sektion("Backup")
+    VStack(alignment: .leading, spacing: Mh.abstand2) {
+      MhGruppenLabel("Backup").padding(.bottom, -Mh.abstand2)
       Button {
         exportieren()
       } label: {
-        Label("In iCloud speichern", systemImage: "icloud.and.arrow.up")
-          .frame(maxWidth: .infinity)
+        MhButtonInhalt("In iCloud speichern", symbol: "MhSave")
       }
-      .buttonStyle(MhButtonStil(flaeche: Mh.honig300, text: Mh.honig900))
+      .buttonStyle(MhZweitButtonStil(breit: true))
       Button {
         restoreBestaetigen = true
       } label: {
-        Label("Backup wiederherstellen", systemImage: "arrow.counterclockwise")
-          .font(.nunitoBold(16))
-          .foregroundStyle(Mh.gruenText)
-          .frame(maxWidth: .infinity, minHeight: 44)
-          .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Mh.rand, lineWidth: 1.5))
+        MhButtonInhalt("Backup wiederherstellen", symbol: "MhUndo")
       }
+      .buttonStyle(MhZweitButtonStil(breit: true))
       Text("Im Dateidialog iCloud Drive als Ziel wählen.")
-        .font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
+        .mhText(.small)
+        .foregroundStyle(Mh.textSecondary)
     }
   }
 
   private var erklaerung: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Sektion("Erklärung")
-      HStack(spacing: 8) {
-        InfoButton(titel: "Aufbau API", symbol: "cloud") {
-          infoTitel = "Aufbau API"
-          infoText = SettingsView.apiInfoText
-        }
-        InfoButton(titel: "Aufbau Datenbank", symbol: "cylinder.split.1x2") {
-          infoTitel = "Aufbau Datenbank"
-          infoText = SettingsView.dbInfoText
-        }
+    VStack(alignment: .leading, spacing: 0) {
+      MhGruppenLabel("Erklärung")
+      Button {
+        infoTitel = "Aufbau API"
+        infoText = SettingsView.apiInfoText
+      } label: {
+        MhListenZeile("Aufbau API", symbol: "MhCloud", pfeil: true)
       }
+      .buttonStyle(.plain)
+      MhTrennlinie()
+      Button {
+        infoTitel = "Aufbau Datenbank"
+        infoText = SettingsView.dbInfoText
+      } label: {
+        MhListenZeile("Aufbau Datenbank", symbol: "MhFile", pfeil: true)
+      }
+      .buttonStyle(.plain)
     }
   }
 
@@ -339,15 +302,7 @@ struct SettingsView: View {
 
 // MARK: - Bausteine
 
-private struct Sektion: View {
-  let titel: String
-  init(_ titel: String) { self.titel = titel }
-
-  var body: some View {
-    Text(titel).font(.nunitoBold(14)).foregroundStyle(Mh.gruenText)
-  }
-}
-
+/// Eine Datenquelle als Listenzeile; die gewählte trägt ein Häkchen.
 private struct ModusZeile: View {
   let gewaehlt: Bool
   let titel: String
@@ -356,23 +311,29 @@ private struct ModusZeile: View {
 
   var body: some View {
     Button(action: onWahl) {
-      HStack(spacing: 12) {
-        Image(systemName: gewaehlt ? "largecircle.fill.circle" : "circle")
-          .font(.system(size: 20))
-          .foregroundStyle(gewaehlt ? Mh.gruenText : Mh.textSekundaer)
+      HStack(spacing: Mh.abstand3) {
         VStack(alignment: .leading, spacing: 2) {
-          Text(titel).font(.nunito(16)).foregroundStyle(Mh.text)
-          Text(untertitel).font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
+          Text(titel)
+            .font(.custom(MhSchrift.medium, size: 16, relativeTo: .body))
+            .foregroundStyle(Mh.textStrong)
+          Text(untertitel).mhText(.small).foregroundStyle(Mh.textSecondary)
         }
-        Spacer()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        MhSymbol("MhCheck")
+          .foregroundStyle(Mh.textGreen)
+          .opacity(gewaehlt ? 1 : 0)
       }
-      .padding(.vertical, 8)
+      .padding(.vertical, Mh.abstand3)
+      .frame(minHeight: 52)
+      .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
+    .accessibilityAddTraits(gewaehlt ? [.isSelected] : [])
   }
 }
 
-/// Verdecktes Eingabefeld mit Auge zum Aufdecken – für die beiden Hälften
-/// des Cloudflare Service Tokens.
+/// Verdecktes Feld mit Label und Hinweis – für die beiden Hälften des
+/// Cloudflare Service Tokens.
 private struct GeheimFeld: View {
   @Binding var wert: String
   var fokus: FocusState<Bool>.Binding
@@ -380,38 +341,10 @@ private struct GeheimFeld: View {
   let hinweis: String
   let onAenderung: (String) -> Void
 
-  @State private var sichtbar = false
-
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        Group {
-          if sichtbar {
-            TextField(titel, text: $wert)
-          } else {
-            SecureField(titel, text: $wert)
-          }
-        }
-        .font(.nunito(16))
-        .focused(fokus)
-        .autocorrectionDisabled()
-        .textInputAutocapitalization(.never)
+    MhFeld(titel, hinweis: hinweis) {
+      GeheimEingabe(wert: $wert, platzhalter: titel, fokus: fokus)
         .onChange(of: wert) { neu in onAenderung(neu) }
-        Button {
-          sichtbar.toggle()
-        } label: {
-          Image(systemName: sichtbar ? "eye.slash" : "eye")
-            .foregroundStyle(Mh.textSekundaer)
-        }
-      }
-      .padding(.horizontal, 14)
-      .frame(minHeight: 44)
-      .background(Mh.feldFlaeche)
-      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-      .overlay(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .strokeBorder(fokus.wrappedValue ? Mh.minze500 : Mh.rand, lineWidth: 1.5))
-      Text(hinweis).font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
     }
   }
 }
@@ -422,40 +355,15 @@ private struct UrlFeld: View {
   let onAenderung: (String) -> Void
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      TextField("API-URL", text: $wert)
-        .font(.nunito(16))
+    MhFeld("API-URL", hinweis: "Basis-URL der API inkl. abschließendem /") {
+      TextField("https://…", text: $wert)
+        .textFieldStyle(.mh)
         .keyboardType(.URL)
         .autocorrectionDisabled()
         .textInputAutocapitalization(.never)
         .focused(fokus)
         .onChange(of: wert) { neu in onAenderung(neu) }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 44)
-        .background(Mh.feldFlaeche)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-          RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(fokus.wrappedValue ? Mh.minze500 : Mh.rand, lineWidth: 1.5))
-      Text("Basis-URL der API inkl. abschließendem /")
-        .font(.nunito(12)).foregroundStyle(Mh.textSekundaer)
-    }
-  }
-}
-
-private struct InfoButton: View {
-  let titel: String
-  let symbol: String
-  let action: () -> Void
-
-  var body: some View {
-    Button(action: action) {
-      Label(titel, systemImage: symbol)
-        .font(.nunitoBold(15))
-        .foregroundStyle(Mh.gruenText)
-        .padding(.horizontal, 14)
-        .frame(minHeight: 40)
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Mh.rand, lineWidth: 1.5))
+        .mhFokus(fokus.wrappedValue)
     }
   }
 }
@@ -466,24 +374,22 @@ private struct InfoSheet: View {
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
-    NavigationStack {
-      ScrollView {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 0) {
+        MhKopf(titel, hauptaktion: {
+          Button("Schließen") { dismiss() }
+            .buttonStyle(MhHauptButtonStil(klein: true))
+        })
         Text(text)
-          .font(.nunito(15))
+          .mhText(.body)
           .foregroundStyle(Mh.text)
           .textSelection(.enabled)
-          .padding(16)
       }
-      .background(Mh.grund)
-      .navigationTitle(titel)
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Schließen") { dismiss() }
-            .font(.nunitoBold(16)).foregroundStyle(Mh.gruenText)
-        }
-      }
+      .padding(.horizontal, Mh.rand)
+      .padding(.top, Mh.abstand5)
+      .padding(.bottom, Mh.abstand8)
     }
+    .background(Mh.bg.ignoresSafeArea())
   }
 }
 

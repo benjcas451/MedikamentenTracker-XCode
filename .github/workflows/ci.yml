@@ -74,3 +74,32 @@ jobs:
             fehler=1
           fi
           exit $fehler
+
+      # Fehlt eine Schriftdatei oder der UIAppFonts-Eintrag, fällt iOS still
+      # auf die Systemschrift zurück. Deshalb am gebauten Bundle geprüft –
+      # für die iPhone-App und die eingebettete Uhr-App.
+      - name: Figtree im Bundle pruefen
+        run: |
+          set -euo pipefail
+          app=""
+          for kandidat in DerivedData/Build/Products/Release-iphoneos/*.app; do
+            if [ -d "$kandidat" ]; then app="$kandidat"; break; fi
+          done
+          fehler=0
+          for ziel in "$app" "$app/Watch/MedikamenteWatch.app"; do
+            for schnitt in Regular Medium SemiBold; do
+              if [ ! -f "$ziel/Figtree-$schnitt.ttf" ]; then
+                echo "::error::Figtree-$schnitt.ttf fehlt in $ziel"
+                fehler=1
+              fi
+            done
+            schriften=$(/usr/libexec/PlistBuddy -c "Print :UIAppFonts" "$ziel/Info.plist" 2>/dev/null || echo FEHLT)
+            echo "$ziel UIAppFonts: $schriften"
+            for schnitt in Regular Medium SemiBold; do
+              case "$schriften" in
+                *"Figtree-$schnitt.ttf"*) ;;
+                *) echo "::error::UIAppFonts ohne Figtree-$schnitt.ttf in $ziel"; fehler=1 ;;
+              esac
+            done
+          done
+          exit $fehler
