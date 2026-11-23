@@ -4,7 +4,8 @@ import SwiftUI
 struct MedikamenteApp: App {
 
   init() {
-    NunitoFont.registrieren()
+    // Figtree registrieren, Segmente/Leisten an Minze & Honig 2.0 anpassen.
+    MhDarstellung.einrichten()
     AppSettings.migrationAusfuehren()
     // Ohne mindestens eine Datei blendet iOS den App-Ordner in der
     // „Dateien“-App aus – dort liegen aber client.crt/client.key.

@@ -119,12 +119,16 @@ medikamente/                     iPhone-App
   AppSettings.swift              UserDefaults + Flutter-Migration
   LocalBackupService.swift       JSON-Backup (Format kompatibel zu Android/Flutter)
   WatchSync.swift                schiebt Snapshots an die Uhr (updateApplicationContext)
-  Theme.swift                    Minze-&-Honig-Tokens, Nunito-Registrierung, Bausteine
+  MhTheme.swift                  Minze & Honig 2.0: Rollen hell/dunkel, Figtree, Typo-Skala
+  MhBausteine.swift              2.0-Bausteine (Kopf, Buttons, Segmente, Listen, Felder …)
+  Bausteine.swift                App-eigene Bausteine (Fokusrand, verdecktes Feld, Datumstexte)
+  Bildschirmfotos.swift          erfundene Testdaten für die Bildschirmfotos (nur Debug)
   HomeView/HomeViewModel/SettingsView.swift   UI
 MedikamenteWatch/                watchOS-App (read-only Anzeige)
   MedEntry.swift                 Eintrag + Snapshot (Payload-Parsing)
   WatchStore.swift               empfängt/cached den Application-Context
-  ContentView.swift              UI (MhW-Töne, Nunito über UIAppFonts)
+  MhUhr.swift                    dunkle 2.0-Rollen + Figtree (über UIAppFonts)
+  ContentView.swift              UI
 ```
 
 **Datenquellen (vom Nutzer wählbar):** Server per mTLS-Client-Zertifikat
@@ -276,29 +280,37 @@ auszuwählen.
 
 Unabhängig davon gibt es das manuelle Backup unter *Einstellungen → Backup*.
 
-## Design-System „Minze & Honig“ (v1.0)
+## Design-System „Minze & Honig“ 2.0
 
-Quelle der Wahrheit im Code: `medikamente/Theme.swift` (iPhone) und die
-`MhW`-Farbsektion in `MedikamenteWatch/ContentView.swift` (Uhr). Kernregeln:
+Maßgeblich ist der Guide im Repo `DesignGuide` (`DESIGN_GUIDE.md`,
+`tokens/design-tokens.json`). Im Code: `medikamente/MhTheme.swift` und
+`MhBausteine.swift` (iPhone, aus dem gemeinsamen Bausatz) sowie
+`MedikamenteWatch/MhUhr.swift` (Uhr). Kernregeln:
 
-- **Grundregel:** Weiß dominiert, Farbe liegt *auf* dem Grund — nie als
-  Seitenhintergrund. Dark: Grund `#1F2221`, Karten `#292D2B`, Ränder
-  `#3A403C` — kein reines Schwarz.
-- **Skalen 50–900** je Markenfarbe. 300 = Markenton (Flächen/Buttons),
-  100 = zarte Hinweisfläche, 600/700 = text-/icontauglich auf Weiß,
-  900 = Text auf 300er-Flächen. **Pastell (300) nie als Text auf Weiß.**
-- **Markenfarben:** Minze (Primär) `#A8D5BA`/300, Honig (Sekundär)
-  `#F7E8A4`/300, Flieder (Akzent, sparsam) `#CDB4DB`/300; Grau leicht
-  grünstichig; Rot nur semantisch (Fehler/Löschen).
-- **Medikamenten-Einträge:** einheitliches Avatar-Muster in Minze
-  (zarte 100er-Fläche + Icon 700, Dark: `#263B2F` + 300).
-- **Typografie:** ausschließlich **Nunito**. iPhone: Registrierung zur
-  Laufzeit (`NunitoFont.registrieren()`, kein Info.plist-Eintrag nötig);
-  Uhr: `UIAppFonts` in `MedikamenteWatch/Info.plist`. Achtung: die
-  statischen Google-Fonts-Schnitte tragen die PostScript-Namen
-  `NunitoExtraLight-Regular/-SemiBold/-Bold/-ExtraBold` — es sind
-  trotzdem die Gewichte 400/600/700/800. Lizenz: `Fonts/OFL_NUNITO.txt`.
-- **Form:** Radius 8/12/16/24/Pill; Buttons min. 44 pt Höhe.
+- **Farbe ist Signal, keine Fläche.** Keine Pastell-Buttons, -Kacheln oder
+  -Karten. Genau eine Hauptaktion je Ansicht (`Mh.primary`: Minze-700 mit
+  weißer Schrift, im Dunkeln Minze-400 mit dunkler Schrift), alles andere
+  Haarlinie oder Text.
+- **Nur Rollen** (`Mh.bg`, `Mh.text`, `Mh.border` …), nie Skalenwerte.
+  Dunkel: Grund `#1F2221`, Flächen `#262A28`, Linien `#343A36`, farbiger
+  Text nur aus den Stufen 200/300.
+- **Haarlinien und Weißraum** statt Karten mit Schatten.
+- **Schrift Figtree** 400/500/600 (keine Kursive), Dynamic Type über
+  `.mhText(.h1)` usw. iPhone: `UIAppFonts` in `AppInfo.plist`, zusätzlich
+  Registrierung zur Laufzeit in `MhDarstellung.einrichten()`; Uhr:
+  `UIAppFonts` in `MedikamenteWatch/Info.plist`. Lizenz:
+  `licenses/Figtree-OFL.txt` bzw. `Fonts/OFL_FIGTREE.txt`.
+- **Liniensymbole** aus dem Bausatz (`Mh*.imageset`, Vorlagenbilder) statt
+  Emojis und SF Symbols. Die Uhr behält ihren Aufbau samt SF Symbols; dort
+  sind nur Farben und Schrift umgestellt.
+- **Hell/Dunkel** folgt dem System.
+
+**Bildschirmfotos:** Der Workflow `screenshots.yml` (Push auf `claude/**`
+oder manuell) startet `ScreenshotTests` im Simulator, hell/dunkel und mit
+normaler bzw. großer Schrift, und legt die Bilder als Artefakt
+„bildschirmfotos“ ab. Die App läuft dabei mit `-MhBildschirmfotos 1` im
+lokalen Modus auf einer eigenen Datenbank mit erfundenen Einträgen (nur
+Debug-Builds).
 
 ## Sicherheit / was nie ins Repo darf
 

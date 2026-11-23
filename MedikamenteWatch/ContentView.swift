@@ -1,23 +1,5 @@
 import SwiftUI
 
-// Minze-&-Honig-Töne für die Uhr (watchOS rendert immer auf dunklem Grund;
-// Pastellflächen 300 mit 900er-Text funktionieren dort direkt, Guide 2.8).
-enum MhW {
-  static let minze300 = Color(red: 0xA8 / 255, green: 0xD5 / 255, blue: 0xBA / 255)
-  static let minze900 = Color(red: 0x22 / 255, green: 0x39 / 255, blue: 0x2C / 255)
-  static let minzeDunkel = Color(red: 0x26 / 255, green: 0x3B / 255, blue: 0x2F / 255)
-  static let karte = Color(red: 0x29 / 255, green: 0x2D / 255, blue: 0x2B / 255)
-  static let textHell = Color(red: 0xEC / 255, green: 0xEF / 255, blue: 0xED / 255)
-}
-
-extension Font {
-  // PostScript-Namen der eingebetteten Nunito-Schnitte (siehe Telefon-App).
-  static func nunito(_ groesse: CGFloat) -> Font { .custom("NunitoExtraLight-Regular", size: groesse) }
-  static func nunitoSemiBold(_ groesse: CGFloat) -> Font { .custom("NunitoExtraLight-SemiBold", size: groesse) }
-  static func nunitoBold(_ groesse: CGFloat) -> Font { .custom("NunitoExtraLight-Bold", size: groesse) }
-  static func nunitoExtraBold(_ groesse: CGFloat) -> Font { .custom("NunitoExtraLight-ExtraBold", size: groesse) }
-}
-
 /// Übersicht der zuletzt eingenommenen Medikamente.
 struct ContentView: View {
   @EnvironmentObject private var store: WatchStore
@@ -34,20 +16,24 @@ struct ContentView: View {
             Section {
               TodaySummary(today: snapshot.todayTotal, week: snapshot.weekTotal)
                 .listRowBackground(
-                  RoundedRectangle(cornerRadius: 12).fill(MhW.minzeDunkel))
+                  RoundedRectangle(cornerRadius: 12).fill(MhUhr.surface))
             }
-            Section("Zuletzt") {
+            Section {
               ForEach(snapshot.entries) { entry in
                 EntryRow(entry: entry)
                   .listRowBackground(
-                    RoundedRectangle(cornerRadius: 12).fill(MhW.karte))
+                    RoundedRectangle(cornerRadius: 12).fill(MhUhr.surface))
               }
+            } header: {
+              Text("Zuletzt")
+                .font(.figtreeMedium(13, relativeTo: .footnote))
+                .foregroundStyle(MhUhr.textSecondary)
             }
             if let updatedAt = snapshot.updatedAt {
               Section {
                 Text("Stand: \(updatedAt, style: .relative)")
-                  .font(.nunito(12))
-                  .foregroundStyle(.secondary)
+                  .font(.figtree(12, relativeTo: .footnote))
+                  .foregroundStyle(MhUhr.textSecondary)
                   .listRowBackground(Color.clear)
               }
             }
@@ -57,7 +43,7 @@ struct ContentView: View {
       // Ohne Emoji – auf dem schmalen Display bräche der Titel sonst um.
       .navigationTitle("Medikamente")
     }
-    .tint(MhW.minze300)
+    .tint(MhUhr.primary)
   }
 }
 
@@ -69,13 +55,14 @@ private struct TodaySummary: View {
   var body: some View {
     HStack {
       VStack(alignment: .leading, spacing: 2) {
-        Text("Heute").font(.nunitoSemiBold(12)).foregroundStyle(.secondary)
-        Text("\(today)").font(.nunitoExtraBold(22)).foregroundStyle(MhW.minze300)
+        Text("Heute").font(.figtreeMedium(12, relativeTo: .caption)).foregroundStyle(MhUhr.textSecondary)
+        // Große Zahlen dünn in Textfarbe (Guide 2.0).
+        Text("\(today)").font(.figtree(22, relativeTo: .title3)).foregroundStyle(MhUhr.textStrong)
       }
       Spacer()
       VStack(alignment: .trailing, spacing: 2) {
-        Text("7 Tage").font(.nunitoSemiBold(12)).foregroundStyle(.secondary)
-        Text("\(week)").font(.nunitoBold(18)).foregroundStyle(MhW.textHell)
+        Text("7 Tage").font(.figtreeMedium(12, relativeTo: .caption)).foregroundStyle(MhUhr.textSecondary)
+        Text("\(week)").font(.figtree(18, relativeTo: .headline)).foregroundStyle(MhUhr.textStrong)
       }
     }
     .padding(.vertical, 2)
@@ -89,13 +76,13 @@ private struct EntryRow: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
       Text(entry.medikament)
-        .font(.nunitoBold(15))
-        .foregroundStyle(MhW.textHell)
+        .font(.figtreeMedium(15, relativeTo: .headline))
+        .foregroundStyle(MhUhr.textStrong)
         .lineLimit(2)
       if let time = entry.time {
         Text("\(Self.dayLabel(for: time)) · \(time, format: .dateTime.hour().minute())")
-          .font(.nunito(12))
-          .foregroundStyle(.secondary)
+          .font(.figtree(12, relativeTo: .footnote))
+          .foregroundStyle(MhUhr.textSecondary)
       }
     }
     .padding(.vertical, 2)
@@ -118,17 +105,17 @@ private struct EmptyStateView: View {
     VStack(spacing: 8) {
       Image(systemName: neverSynced ? "iphone.slash" : "tray")
         .font(.largeTitle)
-        .foregroundStyle(MhW.minze300)
+        .foregroundStyle(MhUhr.link)
       Text(neverSynced ? "Noch keine Daten" : "Keine Einträge")
-        .font(.nunitoBold(15))
-        .foregroundStyle(MhW.textHell)
+        .font(.figtreeSemiBold(15, relativeTo: .headline))
+        .foregroundStyle(MhUhr.textStrong)
       Text(
         neverSynced
           ? "Öffne die App auf dem iPhone, damit die Einträge übertragen werden."
           : "Es wurden noch keine Medikamente erfasst."
       )
-      .font(.nunito(12))
-      .foregroundStyle(.secondary)
+      .font(.figtree(12, relativeTo: .footnote))
+      .foregroundStyle(MhUhr.textSecondary)
       .multilineTextAlignment(.center)
     }
     .padding()
