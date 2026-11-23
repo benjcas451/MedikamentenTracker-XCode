@@ -33,15 +33,31 @@ final class DemoService: MedService, @unchecked Sendable {
 
   private func datenbank() throws -> OpaquePointer {
     if let db { return db }
-    let pfad = FileManager.default
+    let standardPfad = FileManager.default
       .urls(for: .documentDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("medikamenten_demo.db").path
+    #if DEBUG
+      // Bildschirmfotos im UI-Test: eigene Datei mit erfundenen Einträgen.
+      let pfad = Bildschirmfotos.aktiv ? Bildschirmfotos.datenbankPfad : standardPfad
+      if Bildschirmfotos.aktiv { try? FileManager.default.removeItem(atPath: pfad) }
+    #else
+      let pfad = standardPfad
+    #endif
 
     var handle: OpaquePointer?
     guard sqlite3_open(pfad, &handle) == SQLITE_OK, let handle else {
       throw ServiceError(message: "Lokale Datenbank ließ sich nicht öffnen.")
     }
     try migrieren(handle)
+    #if DEBUG
+      if Bildschirmfotos.aktiv {
+        for eintrag in Bildschirmfotos.testdaten() {
+          try ausfuehren(
+            handle, "INSERT INTO entries(medikament, time) VALUES(?,?)",
+            parameter: [eintrag.medikament, IsoZeit.dbString(from: eintrag.zeit)])
+        }
+      }
+    #endif
     db = handle
     return handle
   }
